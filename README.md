@@ -80,6 +80,196 @@ docker run -d --name kibana --network elastic -p 5601:5601 docker.elastic.co/kib
 
 ---
 
+# Logback - Sistema de Logging do Spring Boot
+
+- Logback é o sistema de logging padrão no Spring Boot.
+- Oferece alta performance e flexibilidade.
+- Permite configurar múltiplos destinos (arquivo, console, Elasticsearch).
+
+---
+
+# Por que Usar o Logback?
+- É integrado nativamente ao Spring Boot.
+- Suporte para diferentes formatos de logs (JSON, texto).
+- Permite enviar logs diretamente para o Elasticsearch.
+
+---
+
+# Enviando Logs do Spring Boot para o Elasticsearch
+
+- Usaremos o Logback, que é o sistema de logging padrão do Spring Boot.
+- O Logback permite enviar logs diretamente para o Elasticsearch via TCP.
+
+---
+
+# Configuração Básica - Logs em Texto
+- Usaremos o arquivo `logback-spring.xml` para configurar o Logback.
+- O arquivo deve ser colocado em `src/main/resources`.
+
+```xml
+<configuration>
+  <appender name="ELASTIC" class="ch.qos.logback.classic.net.SocketAppender">
+    <remoteHost>localhost</remoteHost>
+    <port>9200</port>
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <root level="info">
+    <appender-ref ref="ELASTIC" />
+  </root>
+</configuration>
+```
+
+- Isso enviará os logs diretamente para o Elasticsearch na porta 9200.
+
+---
+
+# Configuração Avançada - Logs em JSON
+- Para enviar logs em JSON, adicionaremos a dependência do JSON Encoder:
+
+### Maven
+```xml
+<dependency>
+    <groupId>net.logstash.logback</groupId>
+    <artifactId>logstash-logback-encoder</artifactId>
+    <version>7.2</version>
+</dependency>
+```
+
+### Gradle
+```gradle
+implementation 'net.logstash.logback:logstash-logback-encoder:7.2'
+```
+
+---
+
+# Configurando o Logback para Logs JSON
+```xml
+<configuration>
+  <appender name="ELASTIC_JSON" class="ch.qos.logback.classic.net.SocketAppender">
+    <remoteHost>localhost</remoteHost>
+    <port>9200</port>
+    <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+      <providers>
+        <timestamp>
+          <timeZone>UTC</timeZone>
+        </timestamp>
+        <message />
+        <loggerName />
+        <threadName />
+        <level />
+        <mdc />
+        <contextName />
+      </providers>
+    </encoder>
+  </appender>
+
+  <root level="info">
+    <appender-ref ref="ELASTIC_JSON" />
+  </root>
+</configuration>
+```
+
+---
+
+# Verificando Logs no Elasticsearch
+- Verificar se o Elasticsearch está rodando na porta 9200:
+
+```bash
+curl -X GET "http://localhost:9200/_cat/indices?v"
+```
+
+- Verificar se os logs estão chegando:
+
+```bash
+curl -X GET "http://localhost:9200/logs-*/_search?pretty"
+```
+
+---
+
+# Diagnóstico de Problemas
+- **Problema:** Logs não aparecem no Elasticsearch.  
+  **Solução:** Verificar se o Elasticsearch está rodando e a porta está correta.
+
+- **Problema:** Erro de conexão com o Elasticsearch.  
+  **Solução:** Verificar o `remoteHost` e a porta no `logback-spring.xml`.
+
+- **Problema:** Logs JSON aparecem como texto.  
+  **Solução:** Verificar se o JSON Encoder está configurado corretamente.
+
+---
+
+# Boas Práticas de Configuração
+- Mantenha os logs locais (arquivo) além de enviá-los para o Elasticsearch.
+- Configure o nível de logs corretamente (`info`, `warn`, `error`).
+- Use o JSON Encoder para enviar logs estruturados (recomendado).
+
+---
+
+# Como Funciona o SocketAppender?
+- O `SocketAppender` envia logs diretamente para um servidor via TCP.
+- No exemplo, está configurado para enviar para o Elasticsearch.
+
+- **Remote Host:** localhost (Elasticsearch na mesma máquina).
+- **Porta:** 9200 (padrão do Elasticsearch).
+
+---
+
+# Enviando Logs para o Elasticsearch
+- A configuração acima envia logs diretamente para o Elasticsearch.
+- É necessário garantir que o Elasticsearch está rodando na porta 9200.
+- Verifique a configuração do Docker:
+
+```bash
+docker run -d --name elasticsearch -p 9200:9200 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:8.6.2
+```
+
+---
+
+# Como Garantir que os Logs Também Fiquem Locais?
+- Você pode configurar múltiplos appenders no `logback-spring.xml`.
+
+```xml
+<appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>logs/app.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+        <fileNamePattern>logs/app.%d{yyyy-MM-dd}.log</fileNamePattern>
+    </rollingPolicy>
+    <encoder>
+        <pattern>%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+</appender>
+
+<root level="info">
+    <appender-ref ref="FILE" />
+    <appender-ref ref="ELASTIC" />
+</root>
+```
+
+---
+
+# Diagnóstico de Problemas com Logback
+- **Problema:** Logs não aparecem no Elasticsearch.  
+  **Solução:** Verificar se o Elasticsearch está rodando e a porta 9200 está aberta.
+
+- **Problema:** Erro de conexão com o Elasticsearch.  
+  **Solução:** Verificar o `remoteHost` e a porta no `logback-spring.xml`.
+
+- **Problema:** Logs locais não estão sendo gerados.  
+  **Solução:** Verificar se o appender `FILE` está configurado corretamente.
+
+---
+
+# Boas Práticas de Configuração
+- Sempre mantenha uma cópia local dos logs (appenders múltiplos).
+- Configure o nível de logs corretamente (`info`, `warn`, `error`).
+- Monitore o desempenho para evitar sobrecarregar o Elasticsearch.
+
+---
+
+
 # Capturando Logs com Spring Boot
 - Usaremos o Logback configurado para enviar logs ao Elasticsearch
 - Configuração de exemplo:
